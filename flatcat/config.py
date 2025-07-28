@@ -32,6 +32,7 @@ class Filters:
             "dist",
             "node_modules/**",
             "node_modules",
+            ".next",
             "*.egg-info/**",
             "*.egg-info"
         ]
