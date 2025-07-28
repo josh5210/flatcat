@@ -9,7 +9,19 @@ ignore_extensions = [".png", ".jpg", ".gif", ".exe", ".zip", ".pdf"]
 
 [filters]
 include = []    # e.g. ["src/**", "*.py"], if non-empty, only these matchers are included
-exclude = ["**/__pycache__/**", "__pycache__", "venv/**", "venv", ".venv/**", ".venv", ".git/**", ".git", "build/**", "build", "dist/**", "dist", "node_modules/**", "node_modules", ".next", "*.egg-info/**", "*.egg-info"]
+exclude = [
+    "**/__pycache__/**", "__pycache__", 
+    "venv/**", "venv", ".venv/**", ".venv",
+    ".git/**", ".git", 
+    "build/**", "build", "dist/**", "dist",
+    "node_modules/**", "node_modules", 
+    "*.egg-info/**", "*.egg-info",
+    ".next/**", ".next", ".nuxt/**", ".nuxt", "out/**", "coverage/**",
+    "package-lock.json", "pnpm-lock.yaml", "yarn.lock",
+    ".cache/**", ".tmp/**", "tmp/**", ".DS_Store", "Thumbs.db",
+    ".vscode/**", ".idea/**",
+    ".turbo/**", ".vercel/**", ".netlify/**"
+]
 
 [format]
 heading = "### {path}"

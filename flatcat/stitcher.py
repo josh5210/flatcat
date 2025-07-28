@@ -14,11 +14,27 @@ except Exception:
     pathspec = None
 
 
-def is_text_file(path: Path, blocksize: int = 8192) -> bool:
+def is_text_file(path: Path, blocksize: int = 512) -> bool:
+    """
+    Check if a file is text by reading a small sample.
+    """
     try:
+        # Skip very large files (>50MB) to prevent hanging
+        file_size = path.stat().st_size
+        if file_size > 50 * 1024 * 1024:    # 50MB limit
+            return False
+        
+        # Skip empty files
+        if file_size == 0:
+            return True
+        
+        # Read only a small sample for large files
+        read_size = min(blocksize, file_size, 1024) # Max 1KB for initial check
+
         with path.open("rb") as f:
-            return b"\0" not in f.read(blocksize)
-    except OSError:
+            sample = f.read(read_size)
+            return b"\0" not in sample
+    except (OSError, PermissionError, UnicodeDecodeError):
         return False
 
 
@@ -29,18 +45,15 @@ def lang_from_suffix(path: Path) -> str:
 def is_ignored_path(path: Path, cfg: Config, allowed_by_git: Optional[set[Path]], pspec) -> bool:
     rel = path.relative_to(cfg.root)
 
-    if cfg.respect_gitignore:
-        if allowed_by_git is not None and path.is_file():
-            return path not in allowed_by_git
-        if pspec is not None:
-            if pspec.match_file(rel.as_posix()):
-                return True
-    
-    # directories / files excluded by patterns
+    # Check exclude patterns first - these override everything else
     for pat in cfg.filters.exclude:
         if rel.match(pat):
             return True
     
+    # Check extension ignores
+    if path.suffix in cfg.ignore_extensions:
+        return True
+
     # include list: if present, anything not matched is "ignored"
     if cfg.filters.include:
         if path.is_dir():
@@ -52,9 +65,13 @@ def is_ignored_path(path: Path, cfg: Config, allowed_by_git: Optional[set[Path]]
             if not any(rel.match(p) for p in cfg.filters.include):
                 return True
             
-    if path.suffix in cfg.ignore_extensions:
-        return True
-    
+    if cfg.respect_gitignore:
+        if allowed_by_git is not None and path.is_file():
+            return path not in allowed_by_git
+        if pspec is not None:
+            if pspec.match_file(rel.as_posix()):
+                return True
+      
     return False
 
 
@@ -118,6 +135,14 @@ def write_markdown(cfg: Config) -> None:
         for dirpath, _, filenames in os.walk(cfg.root):
             for name in sorted(filenames):
                 p = Path(dirpath, name)
+
+                # Skip very large files early
+                try:
+                    if p.stat().st_size > 10 * 1024 * 1024: # 10MB limit
+                        continue
+                except (OSError, PermissionError):
+                    continue
+
                 if not is_text_file(p):
                     continue
                 if not should_include(p, cfg, allowed_by_git, pspec):
@@ -128,5 +153,14 @@ def write_markdown(cfg: Config) -> None:
                 out.write(f"{heading}\n")
                 lang = lang_from_suffix(p) if cfg.format.fence_language_from_extension else ""
                 out.write(f"```{lang}\n")
-                out.write(p.read_text(encoding="utf-8", errors="ignore"))
+
+                try:
+                    content = p.read_text(encoding="utf-8", errors="ignore")
+                    # Truncate very long files to prevent overwhelming output
+                    if len(content) > 100000:   # 100k chars
+                        content = content[:100000] + "\n\n... (truncated - file too long for LLM context)"
+                    out.write(content)
+                except (OSError, PermissionError, UnicodeDecodeError):
+                    out.write("(Error reading file)")
+
                 out.write("\n```\n\n")

@@ -57,7 +57,25 @@ class Config:
     tree_depth: int = 0
     respect_gitignore: bool = True
     ignore_extensions: List[str] = field(
-        default_factory=lambda: [".png", ".jpg", ".gif", ".exe", ".zip", ".pdf"]
+        default_factory=lambda: [
+            # Images
+            ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".svg", ".webp",
+            # Videos
+            ".mp4", ".avi", ".mov", ".wmv", ".flv", ".webm",
+            # Audio
+            ".mp3", ".wav", ".flac", ".aac", ".ogg",
+            # Archives
+            ".zip", ".rar", ".7z", ".tar", ".gz", ".bz2",
+            # Executables
+            ".exe", ".dll", ".so", ".dylib", ".app",
+            # Documents (binary)
+            ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+            # Fonts
+            ".ttf", ".otf", ".woff", ".woff2", ".eot",
+            # Other binary/large files
+            ".bin", ".dat", ".db", ".sqlite", ".sqlite3",
+            ".pem", ".key", ".crt", ".p12"
+        ]
     )
     filters: Filters = field(default_factory=Filters)
     format: FormatOptions = field(default_factory=FormatOptions)

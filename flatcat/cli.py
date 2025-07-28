@@ -14,11 +14,23 @@ def write_example_config(dest: Path):
     include_tree = true
     tree_depth = 0
     respect_gitignore = true
-    ignore_extensions = [".png", ".jpg", ".gif", ".exe", ".zip", ".pdf"]
+    ignore_extensions = [".png", ".jpg", ".jpeg", ".gif", ".mp4", ".exe", ".zip", ".pdf", ".woff", ".woff2", ".ttf", ".sqlite"]
     
     [filters]
     include = []    # e.g. ["src/**", "*.py"]
-    exclude = ["**/__pycache__/**", "__pycache__", "venv/**", "venv", ".venv/**", ".venv", ".git/**", ".git", "build/**", "build", "dist/**", "dist", "node_modules/**", "node_modules", "*.egg-info/**", "*.egg-info"]
+    exclude = [
+        "**/__pycache__/**", "__pycache__", 
+        "venv/**", "venv", ".venv/**", ".venv",
+        ".git/**", ".git", 
+        "build/**", "build", "dist/**", "dist",
+        "node_modules/**", "node_modules", 
+        "*.egg-info/**", "*.egg-info",
+        ".next/**", ".next", ".nuxt/**", ".nuxt", "out/**", "coverage/**",
+        "package-lock.json", "pnpm-lock.yaml", "yarn.lock",
+        ".cache/**", ".tmp/**", "tmp/**", ".DS_Store", "Thumbs.db",
+        ".vscode/**", ".idea/**",
+        ".turbo/**", ".vercel/**", ".netlify/**"
+    ]
     
     [format]
     heading = "### {path}"
