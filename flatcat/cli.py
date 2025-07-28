@@ -99,15 +99,23 @@ def next_free_path(path: Path) -> Path:
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="flatcat", description="Flatten text files in a repo into a single Markdown file.")
 
+    # Global arguments that apply to all commands
+    p.add_argument("-v", "--verbose", action="store_true", help="Enable verbose logging")
+
     sub = p.add_subparsers(dest="cmd", help="Available commands")
 
+    # 'run' command: The main action to flatten a directory
+    # default action if no other command is specified
+    run_p = sub.add_parser("run", help="Flatten a directory (default action if no command is specified)")
+    run_p.add_argument("directory", nargs="?", default=".", type=Path, help="Directory to flatten (default: current directory)")
+    run_p.add_argument("-c", "--config", type=Path, default=Path(DEFAULT_CONFIG), help="Path to TOML config")
+    run_p.add_argument("--out", type=Path, default=None, help="Output file path (default: ./<dir>md, auto-incremented)")
+    run_p.add_argument("--no-tree", action="store_true", help="Disable directory tree in output")
+    run_p.add_argument("--dry-run", action="store_true", help="Show what would be process without writing output")
+
+    # 'init' command: To create a new config file
     init_p = sub.add_parser("init", help="Write a starter flatcat.toml")
     init_p.add_argument("path", nargs="?", default=DEFAULT_CONFIG, type=Path, help="Config file path")
-
-    p.add_argument("directory", nargs="?", type=Path, help="Directory to flatten (default: current directory)")
-    p.add_argument("-c", "--config", type=Path, default=Path(DEFAULT_CONFIG), help="Path to TOML config")
-    p.add_argument("--out", type=Path, default=None, help="Output file path (default: ./<dir>md, auto-incremented)")
-    p.add_argument("--no-tree", action="store_true", help="Disable directory tree in output")
 
     return p
 
@@ -118,11 +126,27 @@ def main(argv=None):
         import sys
         argv = sys.argv[1:]
     
-    # If first argument is 'init', handle as subcommand
-    if argv and argv[0] == "init":
-        parser = build_parser()
-        args = parser.parse_args(argv)
+    parser = build_parser()
+    
+    if argv:
+        subparser_names = [action.dest for action in parser._subparsers._actions]
+        if argv[0] not in subparser_names and not argv[0].startswith('-'):
+            argv.insert(0, 'run')
+    else:
+        # If no arguments are given at all, default to 'run'
+        argv.insert(0, 'run')
+    
+    args = parser.parse_args(argv)
 
+    # Set up logging based on verbose flag
+    import logging
+    if args.verbose:
+        logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+    else:
+        logging.basicConfig(level=logging.WARNING, format='%(levelname)s: %(message)s')
+
+    # Command Handling
+    if args.cmd == "init":
         path: Path = args.path
         if path.exists():
             print(f"Error: {path} already exists")
@@ -130,35 +154,43 @@ def main(argv=None):
         write_example_config(path)
         print(f"Wrote {path}")
         return 0
+
+    elif args.cmd == "run":
+        directory = args.directory.resolve()
+        if not directory.is_dir():
+            print(f"Error: Directory not found or is not a directory: {args.diretory}")
+            return 1
+        
+        cfg = Config.load(args.config)
+        cfg.root = directory
+
+        # Compute output path
+        default_out = Path.cwd() / f"{cfg.root.name}-flatcat.md"
+        cfg.output = next_free_path(args.out or default_out)
+
+        if args.no_tree:
+            cfg.include_tree = False
+        
+        if args.verbose:
+            print(f"Config loaded from: {args.config}")
+            print(f"Root directory: {cfg.root}")
+            print(f"Output file: {cfg.output}")
+            print(f"Exclude patterns: {cfg.filters.exclude}")
+            print(f"Include patterns: {cfg.filters.include}")
+            print(f"Ignore extensions: {cfg.ignore_extensions}")
+        
+        if args.dry_run:
+            print("DRY RUN - No output file will be written.")
+            # add logic
+            return 0
+        
+        write_markdown(cfg)
+        print(f"Wrote {cfg.output}")
+        return 0
     
-    # Otherwise, handle as main command (ignore subparsers)
-    parser = argparse.ArgumentParser(prog="flatcat", description="Flatten text files in a repo into a single Markdown file.")
-    parser.add_argument("directory", nargs="?", help="Directory to flatten (default: current directory)")
-    parser.add_argument("-c", "--config", type=Path, default=Path(DEFAULT_CONFIG), help="Path to TOML config")
-    parser.add_argument("--out", type=Path, default=None, help="Output file path (default: ./<dir>.md, auto-incremented)")
-    parser.add_argument("--no-tree", action="store_true", help="Disable directory tree in output")
-
-    args = parser.parse_args(argv)
-
-    # Default: run
-    directory = Path(args.directory) if args.directory else Path.cwd()
-    if not directory.exists():
-        parser.error(f"Directory not found: {directory}")
-        return 1
-
-    cfg = Config.load(args.config)
-    cfg.root = directory.resolve()
-
-    # Compute output default ./<basename(dir)>-flatcat.md and auto-increment
-    default_out = Path.cwd() / f"{cfg.root.name}-flatcat.md"
-    cfg.output = next_free_path(args.out or default_out)
-
-    if args.no_tree:
-        cfg.include_tree = False
-    
-    write_markdown(cfg)
-    print(f"Wrote {cfg.output}")
-    return 0
+    # If no command was matched (should not happen with this logic)
+    parser.print_help()
+    return 1
 
 
 if __name__ == "__main__":
