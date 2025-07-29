@@ -98,14 +98,10 @@ def next_free_path(path: Path) -> Path:
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="flatcat", description="Flatten text files in a repo into a single Markdown file.")
-
-    # Global arguments that apply to all commands
     p.add_argument("-v", "--verbose", action="store_true", help="Enable verbose logging")
 
     sub = p.add_subparsers(dest="cmd", help="Available commands")
 
-    # 'run' command: The main action to flatten a directory
-    # default action if no other command is specified
     run_p = sub.add_parser("run", help="Flatten a directory (default action if no command is specified)")
     run_p.add_argument("directory", nargs="?", default=".", type=Path, help="Directory to flatten (default: current directory)")
     run_p.add_argument("-c", "--config", type=Path, default=Path(DEFAULT_CONFIG), help="Path to TOML config")
@@ -113,9 +109,8 @@ def build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--no-tree", action="store_true", help="Disable directory tree in output")
     run_p.add_argument("--dry-run", action="store_true", help="Show what would be process without writing output")
 
-    # 'init' command: To create a new config file
     init_p = sub.add_parser("init", help="Write a starter flatcat.toml")
-    init_p.add_argument("path", nargs="?", default=DEFAULT_CONFIG, type=Path, help="Config file path")
+    init_p.add_argument("path", nargs="?", default=Path("flatcat.toml"), type=Path)
 
     return p
 
@@ -128,13 +123,17 @@ def main(argv=None):
     
     parser = build_parser()
     
-    if argv:
-        subparser_names = [action.dest for action in parser._subparsers._actions]
-        if argv[0] not in subparser_names and not argv[0].startswith('-'):
-            argv.insert(0, 'run')
-    else:
-        # If no arguments are given at all, default to 'run'
-        argv.insert(0, 'run')
+    # Collect subcommand names
+    subparsers_action = next(
+        (a for a in parser._actions if isinstance(a, argparse._SubParsersAction)),
+        None
+    )
+    subcommand_names = set(subparsers_action.choices.keys()) if subparsers_action else set()
+
+    # IF no subcommand token is present, insert 'run' before the first non-flag
+    if not any(tok in subcommand_names for tok in argv):
+        insert_at = next((i for i, tok in enumerate(argv) if not tok.startswith("-")), len(argv))
+        argv = argv[:insert_at] + ["run"] + argv[insert_at:]
     
     args = parser.parse_args(argv)
 
@@ -158,13 +157,18 @@ def main(argv=None):
     elif args.cmd == "run":
         directory = args.directory.resolve()
         if not directory.is_dir():
-            print(f"Error: Directory not found or is not a directory: {args.diretory}")
+            print(f"Error: Directory not found or is not a directory: {args.directory}")
             return 1
         
-        cfg = Config.load(args.config)
+        # Resolve config relative to the target directory
+        cfg_path = args.config if args.config.is_absolute() else (directory / args.config)
+        cfg = Config.load(cfg_path)
+        if args.verbose:
+            print(f"Config loaded from: {cfg_path}")
+
         cfg.root = directory
 
-        # Compute output path
+        # Output path in current working directory
         default_out = Path.cwd() / f"{cfg.root.name}-flatcat.md"
         cfg.output = next_free_path(args.out or default_out)
 

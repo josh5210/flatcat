@@ -5,6 +5,10 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "flatcat"
 version = "0.1.0"
+dependencies = [
+  "pathspec>=0.12.1",
+  "tomli; python_version<'3.11'",
+]
 description = "Flatten a repo's text files into one Markdown file."
 readme = "README.md"
 requires-python = ">=3.11"
