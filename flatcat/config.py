@@ -22,7 +22,7 @@ class Filters:
     exclude: List[str] = field(
         default_factory=lambda: [
             # Version control
-            ".git/**", ".svn/**", ".hg/**",
+            ".git", ".git/**", ".svn/**", ".hg/**",
             
             # Python
             "**/__pycache__/**", "venv/**", ".venv/**", "env/**", ".env/**",
@@ -30,7 +30,7 @@ class Filters:
             ".coverage", "htmlcov/**",
             
             # Node.js / JavaScript
-            "node_modules/**", ".next/**", ".nuxt/**", "out/**", "dist/**", "build/**",
+            "node_modules", "node_modules/**", ".next", ".next/**", ".nuxt/**", "out/**", "dist/**", "build/**",
             ".turbo/**", ".vercel/**", ".netlify/**", "coverage/**", ".nyc_output/**",
             
             # Lock files & large configs
@@ -130,7 +130,7 @@ class Config:
         
         heading_val = get_nested(["format", "heading"], defaults.format.heading)
         preamble_val = get_nested(["format", "preamble"], defaults.format.preamble)
-        
+
         return cls(
             root=Path(d.get("root", defaults.root)),
             output=Path(d.get("output", defaults.output)),
